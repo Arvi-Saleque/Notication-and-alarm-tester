@@ -120,13 +120,20 @@ class NotificationService {
   }) async {
     // Use method channel to schedule alarm with native Android AlarmManager
     try {
-      await platform.invokeMethod('scheduleAlarm', {
+      print('Scheduling alarm for: $scheduledDate');
+      print('Title: $title, Body: $body');
+      print('Timestamp: ${scheduledDate.millisecondsSinceEpoch}');
+      
+      final result = await platform.invokeMethod('scheduleAlarm', {
         'timestamp': scheduledDate.millisecondsSinceEpoch,
         'title': title,
         'body': body,
       });
+      
+      print('Alarm scheduled successfully: $result');
     } catch (e) {
       print('Error scheduling alarm: $e');
+      rethrow;
     }
   }
 

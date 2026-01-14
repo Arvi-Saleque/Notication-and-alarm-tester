@@ -34,35 +34,55 @@ class MainActivity: FlutterActivity() {
                     val title = call.argument<String>("title") ?: "Alarm"
                     val body = call.argument<String>("body") ?: "Time to wake up!"
                     
+                    android.util.Log.d("MainActivity", "Scheduling alarm - timestamp: $timestamp, title: $title, body: $body")
+                    
                     val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
                     
+                    // Use unique ID based on timestamp to avoid conflicts
+                    val requestCode = (timestamp / 1000).toInt()
+                    
                     val intent = Intent(this, AlarmReceiver::class.java).apply {
+                        action = "com.example.notify_tester.ALARM_ACTION"
                         putExtra("title", title)
                         putExtra("body", body)
+                        // Add timestamp to help identify the alarm
+                        putExtra("timestamp", timestamp)
                     }
                     
                     val pendingIntent = PendingIntent.getBroadcast(
                         this,
-                        1,
+                        requestCode,
                         intent,
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                     )
                     
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        if (alarmManager.canScheduleExactAlarms()) {
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            if (alarmManager.canScheduleExactAlarms()) {
+                                android.util.Log.d("MainActivity", "Scheduling exact alarm with AlarmClock (ID: $requestCode)")
+                                alarmManager.setAlarmClock(
+                                    AlarmManager.AlarmClockInfo(timestamp, pendingIntent),
+                                    pendingIntent
+                                )
+                                android.util.Log.d("MainActivity", "Alarm scheduled successfully")
+                            } else {
+                                android.util.Log.e("MainActivity", "Cannot schedule exact alarms - permission denied")
+                                result.error("NO_PERMISSION", "Cannot schedule exact alarms", null)
+                                return@setMethodCallHandler
+                            }
+                        } else {
+                            android.util.Log.d("MainActivity", "Scheduling alarm for Android < 12 (ID: $requestCode)")
                             alarmManager.setAlarmClock(
                                 AlarmManager.AlarmClockInfo(timestamp, pendingIntent),
                                 pendingIntent
                             )
+                            android.util.Log.d("MainActivity", "Alarm scheduled successfully")
                         }
-                    } else {
-                        alarmManager.setAlarmClock(
-                            AlarmManager.AlarmClockInfo(timestamp, pendingIntent),
-                            pendingIntent
-                        )
+                        result.success(true)
+                    } catch (e: Exception) {
+                        android.util.Log.e("MainActivity", "Error scheduling alarm", e)
+                        result.error("ALARM_ERROR", e.message, null)
                     }
-                    
-                    result.success(null)
                 }
                 else -> result.notImplemented()
             }

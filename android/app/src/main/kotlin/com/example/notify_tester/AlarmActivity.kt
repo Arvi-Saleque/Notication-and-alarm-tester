@@ -24,6 +24,8 @@ class AlarmActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        android.util.Log.d("AlarmActivity", "onCreate called")
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
@@ -41,6 +43,8 @@ class AlarmActivity : Activity() {
 
         val title = intent.getStringExtra("title") ?: "Alarm"
         val body = intent.getStringExtra("body") ?: "Time to wake up!"
+        
+        android.util.Log.d("AlarmActivity", "Title: $title, Body: $body")
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL

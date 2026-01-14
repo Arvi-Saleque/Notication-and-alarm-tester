@@ -1,745 +1,292 @@
-# Notify Tester - Flutter Notification & Alarm App
+# Flutter Alarm & Notification Tester
 
-A comprehensive Flutter application demonstrating scheduled notifications and full-featured alarm implementation with continuous sound, vibration, and lock screen display.
+A complete Flutter app that demonstrates how to implement **reliable alarms and notifications** that work even when the app is completely closed. This implementation handles Android's background restrictions, ProGuard obfuscation, and OEM-specific battery optimizations (OnePlus, Oppo, Xiaomi, etc.).
 
----
+## 🎯 Features
 
-## 📱 How This App Works
+- ✅ Schedule exact alarms that trigger even when app is closed
+- ✅ Full-screen alarm activity with sound and vibration
+- ✅ Test notifications
+- ✅ Works with ProGuard/R8 code shrinking enabled
+- ✅ Handles Android 10+ background activity restrictions
+- ✅ Comprehensive permission management UI
+- ✅ OEM-specific battery optimization handling
 
-This app provides three main features:
+## 📋 Table of Contents
 
-1. **Test Notification** - Sends an immediate notification to verify notification system is working
-2. **Schedule Notification** - Schedules a notification for a specific date and time using Flutter's notification system
-3. **Schedule Alarm** - Creates a real alarm with:
-   - Continuous looping alarm sound
-   - Persistent vibration
-   - Full-screen red display that shows on lock screen
-   - Dismiss button to stop the alarm
-   - Native Android AlarmManager integration for precise timing
-
-When the alarm time arrives, the app automatically launches a full-screen activity with loud alarm sound and vibration, even if the phone is locked or the app is closed.
-
----
-
-## � App Screenshots
-
-### Main Interface
-The app features a clean, user-friendly interface with three main buttons:
-
-**Home Screen:**
-- **Test Notification Button** - Send immediate test notification
-- **Schedule Notification Button** - Schedule notification with date/time picker
-- **Schedule Alarm Button** - Schedule full-featured alarm
-
-**Date & Time Picker:**
-- Material Design date picker for selecting date
-- Material Design time picker for selecting time
-- Real-time display of selected date and time
-- Clear visual feedback
-
-**Alarm Screen:**
-- Full-screen red background (#FF1744)
-- Large white text showing alarm title
-- Alarm message body
-- Prominent white "DISMISS ALARM" button
-- Shows even on lock screen
-- Continuous sound and vibration
-
-> **Tip:** Add your own screenshots here by taking screenshots of the app and placing them in a `screenshots` folder, then reference them like:
-> ```markdown
-> ![Home Screen](screenshots/home.png)
-> ![Date Picker](screenshots/date_picker.png)
-> ![Alarm Screen](screenshots/alarm_screen.png)
-> ```
+1. [Dependencies](#dependencies)
+2. [Permissions Required](#permissions-required)
+3. [Complete Implementation](#complete-implementation)
+4. [ProGuard Configuration](#proguard-configuration)
+5. [OEM-Specific Settings](#oem-specific-settings)
+6. [Building APK](#building-apk)
+7. [Testing](#testing)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
-## �📚 Complete Documentation
+## 📦 Dependencies
 
-This documentation is divided into two parts:
-- **Part 1: Scheduled Notifications** (Basic notifications)
-- **Part 2: Full-Featured Alarms** (Real alarm system with sound and full-screen UI)
-
----
-
-# Part 1: Scheduled Notifications Implementation
-
-## 🔐 Step 1: Permissions Required
-
-### Permissions Overview
-For scheduled notifications, you need:
-- `POST_NOTIFICATIONS` (Android 13+) - To display notifications
-- `SCHEDULE_EXACT_ALARM` (Android 12+) - To schedule notifications at exact times
-- `RECEIVE_BOOT_COMPLETED` (Optional) - To reschedule notifications after device reboot
-
-### Implementation Steps
-
-#### 1.1 Add Permission Package
-
-Add to `pubspec.yaml`:
+Add these to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
   flutter:
     sdk: flutter
-  permission_handler: ^11.4.0
-  flutter_local_notifications: ^17.2.4
-  timezone: ^0.9.4
+  cupertino_icons: ^1.0.8
+  flutter_local_notifications: ^17.0.0
+  timezone: ^0.9.0
+  permission_handler: ^11.0.0
+  android_intent_plus: ^4.0.0
 ```
 
-Run:
-```bash
-flutter pub get
-```
-
-#### 1.2 Configure Android Permissions
-
-Add to `android/app/src/main/AndroidManifest.xml` inside `<manifest>` tag (before `<application>`):
-
-```xml
-<!-- Notification permissions -->
-<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-<uses-permission android:name="android.permission.USE_EXACT_ALARM" />
-<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-<uses-permission android:name="android.permission.WAKE_LOCK" />
-<uses-permission android:name="android.permission.VIBRATE" />
-```
-
-#### 1.3 Request Permissions in Code
-
-Create a method to request permissions:
-
-```dart
-import 'package:permission_handler/permission_handler.dart';
-
-Future<void> requestNotificationPermissions() async {
-  // Request notification permission (Android 13+)
-  PermissionStatus notificationStatus = await Permission.notification.request();
-  print('Notification permission: $notificationStatus');
-
-  // Request exact alarm permission (Android 12+)
-  PermissionStatus alarmStatus = await Permission.scheduleExactAlarm.request();
-  print('Exact alarm permission: $alarmStatus');
-
-  // Check if all permissions granted
-  if (notificationStatus.isGranted && alarmStatus.isGranted) {
-    print('All permissions granted!');
-  } else {
-    // Show dialog or explanation to user
-    print('Permissions denied. Please enable them in settings.');
-  }
-}
-```
-
-Call this in your app initialization:
-
-```dart
-@override
-void initState() {
-  super.initState();
-  requestNotificationPermissions();
-}
-```
+Run: `flutter pub get`
 
 ---
 
-## 📦 Step 2: Required Packages & Setup
+## 🔐 Permissions Required
 
-### 2.1 Package Details
+### Why Each Permission is Needed
 
-**flutter_local_notifications (v17.2.4)**
-- Purpose: Handle local notifications on device
-- Features: Schedule, display, and manage notifications
-- Platforms: Android, iOS, macOS
+| Permission | Purpose | Critical? |
+|------------|---------|-----------|
+| `POST_NOTIFICATIONS` | Display notifications on Android 13+ | ⭐ YES |
+| `SCHEDULE_EXACT_ALARM` | Schedule alarms at exact time (Android 12+) | ⭐ YES |
+| `USE_EXACT_ALARM` | Alternative for exact alarms | ⭐ YES |
+| `RECEIVE_BOOT_COMPLETED` | Reschedule alarms after device reboot | ⭐ YES |
+| `VIBRATE` | Vibrate device when alarm rings | ⭐ YES |
+| `WAKE_LOCK` | Keep device awake to show alarm | ⭐ YES |
+| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | Request battery optimization exemption | ⭐ YES |
+| `USE_FULL_SCREEN_INTENT` | Show full-screen alarm over lockscreen | ⭐ YES |
+| `SYSTEM_ALERT_WINDOW` | Display over other apps | ⭐ YES |
+| `FOREGROUND_SERVICE` | Run service in background | ⭐ YES |
+| `FOREGROUND_SERVICE_SPECIAL_USE` | Special use foreground service | ⭐ YES |
 
-**timezone (v0.9.4)**
-- Purpose: Handle timezone-aware scheduling
-- Required for: Scheduling notifications at specific times
-- Usage: Convert DateTime to TZDateTime for scheduling
+---
 
-**permission_handler (v11.4.0)**
-- Purpose: Request runtime permissions
-- Features: Check and request various Android/iOS permissions
-- Usage: Request notification and alarm permissions
+## 🔨 Complete Implementation
 
-### 2.2 Android Configuration
-
-#### Update `android/app/build.gradle`:
+### Step 1: Update `android/app/build.gradle`
 
 ```gradle
 android {
     namespace = "com.example.notify_tester"
-    compileSdk = 35
+    compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        // Required for timezone support
-        coreLibraryDesugaringEnabled true
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
 
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_11
+    }
+
     defaultConfig {
         applicationId = "com.example.notify_tester"
-        minSdk = 21
+        minSdk = flutter.minSdkVersion
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
     }
-}
 
-dependencies {
-    // Required for timezone support on older Android versions
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
-}
-```
-
-#### Update `android/build.gradle`:
-
-```gradle
-buildscript {
-    ext.kotlin_version = '2.1.0'
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath("com.android.tools.build:gradle:8.7.3")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
+    buildTypes {
+        release {
+            // Enable code shrinking and obfuscation
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            
+            signingConfig = signingConfigs.debug
+        }
     }
 }
 ```
 
-#### Update `android/gradle/wrapper/gradle-wrapper.properties`:
+---
 
-```properties
-distributionUrl=https\://services.gradle.org/distributions/gradle-8.9-all.zip
+### Step 2: Create `android/app/proguard-rules.pro`
+
+**CRITICAL:** ProGuard will remove your alarm classes if not configured properly!
+
+```proguard
+## Flutter wrapper
+-keep class io.flutter.app.** { *; }
+-keep class io.flutter.plugin.**  { *; }
+-keep class io.flutter.util.**  { *; }
+-keep class io.flutter.view.**  { *; }
+-keep class io.flutter.**  { *; }
+-keep class io.flutter.plugins.**  { *; }
+
+## Kotlin
+-dontwarn kotlin.**
+-keep class kotlin.** { *; }
+-keep class kotlin.Metadata { *; }
+-keepclassmembers class **$WhenMappings {
+    <fields>;
+}
+-keepclassmembers class kotlin.Metadata {
+    public <methods>;
+}
+-assumenosideeffects class kotlin.jvm.internal.Intrinsics {
+    static void checkParameterIsNotNull(java.lang.Object, java.lang.String);
+}
+
+## flutter_local_notifications
+-keep class com.dexterous.** { *; }
+-keep class androidx.core.app.NotificationCompat** { *; }
+-keep class com.google.firebase.** { *; }
+
+## Gson
+-keepattributes Signature
+-keepattributes *Annotation*
+-dontwarn sun.misc.**
+-keep class com.google.gson.** { *; }
+-keep class * implements com.google.gson.TypeAdapterFactory
+-keep class * implements com.google.gson.JsonSerializer
+-keep class * implements com.google.gson.JsonDeserializer
+
+## Keep generic signature for gson
+-keepattributes Signature
+
+## Keep notification channels and other reflection-based classes
+-keep class * extends java.lang.Enum { *; }
+
+## Google Play Core (for deferred components)
+-dontwarn com.google.android.play.core.**
+-keep class com.google.android.play.core.** { *; }
+
+## Keep custom alarm classes (REPLACE com.example.notify_tester with YOUR package name)
+-keep class com.example.notify_tester.AlarmReceiver { *; }
+-keep class com.example.notify_tester.AlarmActivity { *; }
+-keep class com.example.notify_tester.AlarmService { *; }
+-keep class com.example.notify_tester.MainActivity { *; }
+
+## Keep all BroadcastReceivers
+-keep public class * extends android.content.BroadcastReceiver
+
+## Keep AlarmManager related classes
+-keep class android.app.AlarmManager { *; }
+-keep class android.app.PendingIntent { *; }
+
+## Keep all public methods in custom classes
+-keepclassmembers class com.example.notify_tester.** {
+    public *;
+}
+
+## Keep Intent extras
+-keepclassmembers class * {
+    public void onReceive(android.content.Context, android.content.Intent);
+}
+
+## Keep method channel handlers
+-keepclassmembers class * {
+    *** configureFlutterEngine(io.flutter.embedding.engine.FlutterEngine);
+}
 ```
 
-### 2.3 Add Notification Receiver to AndroidManifest
+**⚠️ IMPORTANT:** Replace `com.example.notify_tester` with your actual package name!
 
-Add inside `<application>` tag in `android/app/src/main/AndroidManifest.xml`:
+---
+
+### Step 3: Update `android/app/src/main/AndroidManifest.xml`
+
+Add all required permissions and components:
 
 ```xml
-<receiver 
-    android:exported="false" 
-    android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
-```
-
----
-
-## 💻 Step 3: Notification Service Implementation
-
-### 3.1 Create NotificationService Class
-
-Create file: `lib/notification_service.dart`
-
-```dart
-import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest_all.dart' as tz;
-
-class NotificationService {
-  static final NotificationService _instance = NotificationService._internal();
-  factory NotificationService() => _instance;
-  NotificationService._internal();
-
-  final FlutterLocalNotificationsPlugin _notifications =
-      FlutterLocalNotificationsPlugin();
-
-  // Initialize notification service
-  Future<void> initialize() async {
-    // Initialize timezone database
-    tz.initializeTimeZones();
-
-    // Android initialization settings
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-
-    // iOS initialization settings
-    const iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
-
-    // Combined initialization settings
-    const initializationSettings = InitializationSettings(
-      android: androidSettings,
-      iOS: iosSettings,
-    );
-
-    // Initialize plugin
-    await _notifications.initialize(
-      initializationSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
-        print('Notification tapped: ${response.payload}');
-        // Handle notification tap here
-      },
-    );
-
-    // Create notification channel for Android
-    await _createNotificationChannel();
-  }
-
-  // Create Android notification channel
-  Future<void> _createNotificationChannel() async {
-    const androidChannel = AndroidNotificationChannel(
-      'scheduled_channel',
-      'Scheduled Notifications',
-      description: 'Channel for scheduled notifications',
-      importance: Importance.high,
-      playSound: true,
-      enableVibration: true,
-      enableLights: true,
-      ledColor: Color(0xFF2196F3),
-    );
-
-    await _notifications
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(androidChannel);
-  }
-
-  // Send test notification immediately
-  Future<void> testNotification() async {
-    const androidDetails = AndroidNotificationDetails(
-      'test_channel',
-      'Test Notifications',
-      channelDescription: 'Channel for testing notifications',
-      importance: Importance.max,
-      priority: Priority.high,
-      showWhen: true,
-      icon: '@mipmap/ic_launcher',
-    );
-
-    const notificationDetails = NotificationDetails(android: androidDetails);
-
-    await _notifications.show(
-      0,
-      'Test Notification',
-      'This is a test notification!',
-      notificationDetails,
-    );
-  }
-
-  // Schedule notification for specific date and time
-  Future<void> scheduleNotification({
-    required DateTime scheduledDate,
-    required String title,
-    required String body,
-  }) async {
-    const androidDetails = AndroidNotificationDetails(
-      'scheduled_channel',
-      'Scheduled Notifications',
-      channelDescription: 'Channel for scheduled notifications',
-      importance: Importance.max,
-      priority: Priority.high,
-      showWhen: true,
-      icon: '@mipmap/ic_launcher',
-      playSound: true,
-      enableVibration: true,
-    );
-
-    const notificationDetails = NotificationDetails(android: androidDetails);
-
-    // Convert DateTime to TZDateTime
-    final tzScheduledDate = tz.TZDateTime.from(scheduledDate, tz.local);
-
-    // Schedule notification
-    await _notifications.zonedSchedule(
-      0,
-      title,
-      body,
-      tzScheduledDate,
-      notificationDetails,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-    );
-
-    print('Notification scheduled for: $scheduledDate');
-  }
-
-  // Cancel all notifications
-  Future<void> cancelAllNotifications() async {
-    await _notifications.cancelAll();
-  }
-
-  // Cancel specific notification by ID
-  Future<void> cancelNotification(int id) async {
-    await _notifications.cancel(id);
-  }
-}
-```
-
----
-
-## 🚀 Step 4: Using Notifications in Your App
-
-### 4.1 Initialize in main.dart
-
-```dart
-import 'package:flutter/material.dart';
-import 'notification_service.dart';
-
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize notification service
-  await NotificationService().initialize();
-  
-  runApp(MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Notification Demo',
-      home: NotificationPage(),
-    );
-  }
-}
-```
-
-### 4.2 Schedule Notification from UI
-
-```dart
-import 'package:flutter/material.dart';
-import 'notification_service.dart';
-
-class NotificationPage extends StatefulWidget {
-  @override
-  _NotificationPageState createState() => _NotificationPageState();
-}
-
-class _NotificationPageState extends State<NotificationPage> {
-  DateTime? selectedDate;
-  TimeOfDay? selectedTime;
-
-  // Test notification
-  Future<void> _testNotification() async {
-    await NotificationService().testNotification();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Test notification sent!')),
-    );
-  }
-
-  // Schedule notification
-  Future<void> _scheduleNotification() async {
-    if (selectedDate == null || selectedTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please select date and time')),
-      );
-      return;
-    }
-
-    // Combine date and time
-    final scheduledDateTime = DateTime(
-      selectedDate!.year,
-      selectedDate!.month,
-      selectedDate!.day,
-      selectedTime!.hour,
-      selectedTime!.minute,
-    );
-
-    await NotificationService().scheduleNotification(
-      scheduledDate: scheduledDateTime,
-      title: 'Scheduled Notification',
-      body: 'This notification was scheduled for ${selectedTime!.format(context)}',
-    );
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Notification scheduled!')),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Notifications')),
-      body: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // Test notification button
-            ElevatedButton(
-              onPressed: _testNotification,
-              child: Text('Send Test Notification'),
-            ),
-            SizedBox(height: 20),
-            
-            // Date picker
-            ListTile(
-              title: Text('Select Date'),
-              subtitle: Text(selectedDate?.toString() ?? 'No date selected'),
-              trailing: Icon(Icons.calendar_today),
-              onTap: () async {
-                final date = await showDatePicker(
-                  context: context,
-                  initialDate: DateTime.now(),
-                  firstDate: DateTime.now(),
-                  lastDate: DateTime.now().add(Duration(days: 365)),
-                );
-                if (date != null) {
-                  setState(() => selectedDate = date);
-                }
-              },
-            ),
-            
-            // Time picker
-            ListTile(
-              title: Text('Select Time'),
-              subtitle: Text(selectedTime?.format(context) ?? 'No time selected'),
-              trailing: Icon(Icons.access_time),
-              onTap: () async {
-                final time = await showTimePicker(
-                  context: context,
-                  initialTime: TimeOfDay.now(),
-                );
-                if (time != null) {
-                  setState(() => selectedTime = time);
-                }
-              },
-            ),
-            
-            SizedBox(height: 20),
-            
-            // Schedule button
-            ElevatedButton(
-              onPressed: _scheduleNotification,
-              child: Text('Schedule Notification'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-```
-
----
-
-# Part 2: Full-Featured Alarm System Implementation
-
-## 🔐 Step 1: Additional Permissions for Alarms
-
-Alarms require additional permissions beyond basic notifications:
-
-### Add to `android/app/src/main/AndroidManifest.xml`:
-
-```xml
-<!-- All notification permissions from Part 1, plus: -->
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-<uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
-<uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-```
-
-### Request Battery Optimization Exemption (Optional but Recommended):
-
-```dart
-Future<void> requestAlarmPermissions() async {
-  // All permissions from Part 1, plus:
-  
-  // Battery optimization exemption
-  PermissionStatus batteryStatus = await Permission.ignoreBatteryOptimizations.request();
-  print('Battery optimization status: $batteryStatus');
-}
-```
-
----
-
-## 📦 Step 2: Native Android Setup
-
-### 2.1 Create AlarmActivity (Kotlin)
-
-Create file: `android/app/src/main/kotlin/com/example/notify_tester/AlarmActivity.kt`
-
-```kotlin
-package com.example.notify_tester
-
-import android.app.Activity
-import android.content.Context
-import android.graphics.Color
-import android.media.AudioAttributes
-import android.media.MediaPlayer
-import android.media.RingtoneManager
-import android.os.Build
-import android.os.Bundle
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.view.Gravity
-import android.view.WindowManager
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.TextView
-
-class AlarmActivity : Activity() {
-    private var mediaPlayer: MediaPlayer? = null
-    private var vibrator: Vibrator? = null
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        // Show on lock screen and turn screen on
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(true)
-            setTurnScreenOn(true)
-        } else {
-            window.addFlags(
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-            )
-        }
-
-        // Keep screen on
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-
-        // Get alarm details from intent
-        val title = intent.getStringExtra("title") ?: "Alarm"
-        val body = intent.getStringExtra("body") ?: "Time to wake up!"
-
-        // Create full-screen red UI
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setBackgroundColor(Color.parseColor("#FF1744"))
-            setPadding(50, 50, 50, 50)
-        }
-
-        // Title text
-        val titleText = TextView(this).apply {
-            text = title
-            textSize = 32f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-        }
-
-        // Body text
-        val bodyText = TextView(this).apply {
-            text = body
-            textSize = 24f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-            setPadding(0, 40, 0, 40)
-        }
-
-        // Dismiss button
-        val dismissButton = Button(this).apply {
-            text = "DISMISS ALARM"
-            textSize = 20f
-            setTextColor(Color.parseColor("#FF1744"))
-            setBackgroundColor(Color.WHITE)
-            setPadding(40, 20, 40, 20)
-            setOnClickListener {
-                stopAlarm()
-                finish()
-            }
-        }
-
-        // Add views to layout
-        layout.addView(titleText)
-        layout.addView(bodyText)
-        layout.addView(dismissButton)
-
-        setContentView(layout)
-
-        // Start alarm sound and vibration
-        startAlarm()
-    }
-
-    private fun startAlarm() {
-        // Start alarm sound
-        try {
-            val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-            mediaPlayer = MediaPlayer().apply {
-                setDataSource(this@AlarmActivity, alarmUri)
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
-                )
-                isLooping = true  // CRITICAL: Loop continuously
-                setVolume(1.0f, 1.0f)
-                prepare()
-                start()
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-
-        // Start vibration
-        vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-        val pattern = longArrayOf(0, 1000, 500, 1000, 500, 1000, 500)
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <!-- All required permissions -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+
+    <application
+        android:label="Notify Tester"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
         
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator?.vibrate(
-                VibrationEffect.createWaveform(pattern, 0) // 0 = repeat from start
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            vibrator?.vibrate(pattern, 0)
-        }
-    }
+        <!-- Main Activity -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
 
-    private fun stopAlarm() {
-        // Stop sound
-        mediaPlayer?.apply {
-            if (isPlaying) stop()
-            release()
-        }
-        mediaPlayer = null
+        <!-- Alarm Activity - Shows full screen when alarm triggers -->
+        <activity
+            android:name=".AlarmActivity"
+            android:exported="true"
+            android:launchMode="singleInstance"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
 
-        // Stop vibration
-        vibrator?.cancel()
-        vibrator = null
-    }
+        <!-- Alarm Service - Keeps app alive to show alarm -->
+        <service
+            android:name=".AlarmService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Alarm trigger service" />
+        </service>
 
-    override fun onDestroy() {
-        super.onDestroy()
-        stopAlarm()
-    }
+        <!-- Alarm Receiver - Receives alarm broadcasts -->
+        <receiver
+            android:name=".AlarmReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:directBootAware="true">
+            <intent-filter>
+                <action android:name="com.example.notify_tester.ALARM_ACTION" />
+            </intent-filter>
+        </receiver>
 
-    override fun onBackPressed() {
-        // Prevent back button from dismissing alarm
-        // User must press dismiss button
-    }
-}
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+    </queries>
+</manifest>
 ```
 
-### 2.2 Create AlarmReceiver (Kotlin)
+---
 
-Create file: `android/app/src/main/kotlin/com/example/notify_tester/AlarmReceiver.kt`
+### Step 4: Create Kotlin Files
 
-```kotlin
-package com.example.notify_tester
+#### 4.1: `MainActivity.kt`
 
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-
-class AlarmReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        val title = intent.getStringExtra("title") ?: "Alarm"
-        val body = intent.getStringExtra("body") ?: "Time to wake up!"
-        
-        val alarmIntent = Intent(context, AlarmActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra("title", title)
-            putExtra("body", body)
-        }
-        context.startActivity(alarmIntent)
-    }
-}
-```
-
-### 2.3 Update MainActivity
-
-Modify `android/app/src/main/kotlin/com/example/notify_tester/MainActivity.kt`:
+Location: `android/app/src/main/kotlin/com/example/notify_tester/MainActivity.kt`
 
 ```kotlin
 package com.example.notify_tester
@@ -749,12 +296,14 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.example.notify_tester/alarm"
+    private val TAG = "MainActivity"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -762,213 +311,962 @@ class MainActivity: FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "scheduleAlarm" -> {
-                    val timestamp = call.argument<Long>("timestamp") ?: 0L
-                    val title = call.argument<String>("title") ?: "Alarm"
-                    val body = call.argument<String>("body") ?: "Time to wake up!"
+                    val timestamp = call.argument<Long>("timestamp")
+                    val title = call.argument<String>("title")
+                    val body = call.argument<String>("body")
                     
-                    val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                    Log.d(TAG, "Scheduling alarm - timestamp: $timestamp, title: $title, body: $body")
                     
-                    val intent = Intent(this, AlarmReceiver::class.java).apply {
-                        putExtra("title", title)
-                        putExtra("body", body)
-                    }
-                    
-                    val pendingIntent = PendingIntent.getBroadcast(
-                        this,
-                        1,
-                        intent,
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
-                    
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        if (alarmManager.canScheduleExactAlarms()) {
-                            alarmManager.setAlarmClock(
-                                AlarmManager.AlarmClockInfo(timestamp, pendingIntent),
-                                pendingIntent
-                            )
-                        }
+                    if (timestamp != null && title != null && body != null) {
+                        scheduleAlarm(timestamp, title, body)
+                        result.success(true)
                     } else {
-                        alarmManager.setAlarmClock(
-                            AlarmManager.AlarmClockInfo(timestamp, pendingIntent),
-                            pendingIntent
-                        )
+                        Log.e(TAG, "Missing parameters for alarm")
+                        result.error("INVALID_ARGS", "Missing required parameters", null)
                     }
-                    
-                    result.success(null)
                 }
                 else -> result.notImplemented()
             }
         }
     }
+
+    private fun scheduleAlarm(timestamp: Long, title: String, body: String) {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        
+        // Use timestamp as unique alarm ID to prevent conflicts
+        val alarmId = (timestamp / 1000).toInt()
+        
+        val intent = Intent(this, AlarmReceiver::class.java).apply {
+            action = "com.example.notify_tester.ALARM_ACTION"
+            putExtra("title", title)
+            putExtra("body", body)
+            putExtra("alarmId", alarmId)
+        }
+        
+        val pendingIntent = PendingIntent.getBroadcast(
+            this,
+            alarmId,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        
+        // Create AlarmClock info for showing in system UI
+        val alarmClockInfo = AlarmManager.AlarmClockInfo(
+            timestamp,
+            pendingIntent
+        )
+        
+        try {
+            Log.d(TAG, "Scheduling exact alarm with AlarmClock (ID: $alarmId)")
+            alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+            Log.d(TAG, "Alarm scheduled successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to schedule alarm: ${e.message}", e)
+        }
+    }
 }
 ```
 
-### 2.4 Register Components in AndroidManifest
+#### 4.2: `AlarmReceiver.kt`
 
-Add inside `<application>` tag in `android/app/src/main/AndroidManifest.xml`:
+Location: `android/app/src/main/kotlin/com/example/notify_tester/AlarmReceiver.kt`
+
+```kotlin
+package com.example.notify_tester
+
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.util.Log
+
+class AlarmReceiver : BroadcastReceiver() {
+    private val TAG = "AlarmReceiver"
+
+    override fun onReceive(context: Context, intent: Intent) {
+        Log.d(TAG, "Alarm received!")
+        
+        val title = intent.getStringExtra("title") ?: "Alarm"
+        val body = intent.getStringExtra("body") ?: "Time's up!"
+        val alarmId = intent.getIntExtra("alarmId", 0)
+        
+        Log.d(TAG, "Title: $title, Body: $body")
+        
+        // Start foreground service to launch alarm activity
+        val serviceIntent = Intent(context, AlarmService::class.java).apply {
+            putExtra("title", title)
+            putExtra("body", body)
+            putExtra("alarmId", alarmId)
+        }
+        
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
+            } else {
+                context.startService(serviceIntent)
+            }
+            Log.d(TAG, "AlarmService started")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start AlarmService: ${e.message}", e)
+        }
+    }
+}
+```
+
+#### 4.3: `AlarmService.kt`
+
+Location: `android/app/src/main/kotlin/com/example/notify_tester/AlarmService.kt`
+
+```kotlin
+package com.example.notify_tester
+
+import android.app.*
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.os.Handler
+import android.os.IBinder
+import android.os.Looper
+import android.os.PowerManager
+import android.util.Log
+import androidx.core.app.NotificationCompat
+
+class AlarmService : Service() {
+    private val TAG = "AlarmService"
+    private val CHANNEL_ID = "alarm_service_channel"
+    private var wakeLock: PowerManager.WakeLock? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        Log.d(TAG, "Service created")
+        createNotificationChannel()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.d(TAG, "Service started")
+        
+        val title = intent?.getStringExtra("title") ?: "Alarm"
+        val body = intent?.getStringExtra("body") ?: "Time's up!"
+        val alarmId = intent?.getIntExtra("alarmId", 0) ?: 0
+        
+        // Acquire wake lock to keep device awake
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(
+            PowerManager.FULL_WAKE_LOCK or 
+            PowerManager.ACQUIRE_CAUSES_WAKEUP or 
+            PowerManager.ON_AFTER_RELEASE,
+            "AlarmService::WakeLock"
+        ).apply {
+            acquire(60000) // 60 seconds
+        }
+        Log.d(TAG, "Wake lock acquired")
+        
+        // Create full-screen intent notification
+        val fullScreenIntent = Intent(this, AlarmActivity::class.java).apply {
+            putExtra("title", title)
+            putExtra("body", body)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        
+        val fullScreenPendingIntent = PendingIntent.getActivity(
+            this,
+            alarmId,
+            fullScreenIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setAutoCancel(true)
+            .setFullScreenIntent(fullScreenPendingIntent, true)
+            .setSound(null)
+            .build()
+        
+        startForeground(alarmId, notification)
+        Log.d(TAG, "Full screen notification posted with ID: $alarmId")
+        
+        // Also try to launch activity directly
+        try {
+            startActivity(fullScreenIntent)
+            Log.d(TAG, "Direct activity launch attempted")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to launch activity: ${e.message}", e)
+        }
+        
+        Log.d(TAG, "Service running in foreground")
+        
+        // Stop service after 10 seconds
+        Handler(Looper.getMainLooper()).postDelayed({
+            Log.d(TAG, "Stopping service")
+            stopForeground(true)
+            stopSelf()
+        }, 10000)
+        
+        return START_NOT_STICKY
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        wakeLock?.let {
+            if (it.isHeld) {
+                it.release()
+            }
+        }
+        Log.d(TAG, "Service destroyed")
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Alarm Service",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Channel for alarm notifications"
+                setBypassDnd(true)
+                enableVibration(true)
+            }
+            
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+            Log.d(TAG, "Notification channel created")
+        }
+    }
+}
+```
+
+#### 4.4: `AlarmActivity.kt`
+
+Location: `android/app/src/main/kotlin/com/example/notify_tester/AlarmActivity.kt`
+
+```kotlin
+package com.example.notify_tester
+
+import android.content.Context
+import android.media.AudioAttributes
+import android.media.MediaPlayer
+import android.media.RingtoneManager
+import android.os.Build
+import android.os.Bundle
+import android.os.PowerManager
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.util.Log
+import android.view.WindowManager
+import android.widget.Button
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+
+class AlarmActivity : AppCompatActivity() {
+    private val TAG = "AlarmActivity"
+    private var mediaPlayer: MediaPlayer? = null
+    private var wakeLock: PowerManager.WakeLock? = null
+    private var vibrator: Vibrator? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        Log.d(TAG, "onCreate called")
+
+        // Show over lockscreen
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            )
+        }
+
+        // Keep screen on
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+            WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+        )
+
+        // Acquire wake lock
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(
+            PowerManager.FULL_WAKE_LOCK or 
+            PowerManager.ACQUIRE_CAUSES_WAKEUP or 
+            PowerManager.ON_AFTER_RELEASE,
+            "AlarmActivity::WakeLock"
+        ).apply {
+            acquire(10 * 60 * 1000L) // 10 minutes
+        }
+
+        // Get intent data
+        val title = intent.getStringExtra("title") ?: "Alarm"
+        val body = intent.getStringExtra("body") ?: "Time's up!"
+        Log.d(TAG, "Title: $title, Body: $body")
+
+        // Create simple UI
+        setContentView(R.layout.activity_alarm)
+        
+        findViewById<TextView>(R.id.alarmTitle).text = title
+        findViewById<TextView>(R.id.alarmBody).text = body
+        
+        findViewById<Button>(R.id.dismissButton).setOnClickListener {
+            dismissAlarm()
+        }
+
+        // Start alarm sound and vibration
+        playAlarmSound()
+        startVibration()
+    }
+
+    private fun playAlarmSound() {
+        try {
+            val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            mediaPlayer = MediaPlayer().apply {
+                setDataSource(applicationContext, alarmUri)
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                isLooping = true
+                prepare()
+                start()
+            }
+            Log.d(TAG, "Alarm sound started")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to play alarm sound: ${e.message}", e)
+        }
+    }
+
+    private fun startVibration() {
+        vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            vibratorManager.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+
+        val pattern = longArrayOf(0, 1000, 500, 1000, 500) // Vibrate pattern
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator?.vibrate(VibrationEffect.createWaveform(pattern, 0))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator?.vibrate(pattern, 0)
+        }
+        Log.d(TAG, "Vibration started")
+    }
+
+    private fun dismissAlarm() {
+        Log.d(TAG, "Dismissing alarm")
+        mediaPlayer?.stop()
+        mediaPlayer?.release()
+        mediaPlayer = null
+        
+        vibrator?.cancel()
+        
+        wakeLock?.let {
+            if (it.isHeld) {
+                it.release()
+            }
+        }
+        
+        finish()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        dismissAlarm()
+        Log.d(TAG, "Activity destroyed")
+    }
+}
+```
+
+#### 4.5: Create Alarm Activity Layout
+
+Location: `android/app/src/main/res/layout/activity_alarm.xml`
+
+Create the `layout` folder if it doesn't exist, then create this file:
 
 ```xml
-<!-- AlarmActivity for full-screen alarm display -->
-<activity
-    android:name=".AlarmActivity"
-    android:excludeFromRecents="true"
-    android:launchMode="singleInstance"
-    android:showWhenLocked="true"
-    android:turnScreenOn="true"
-    android:taskAffinity=""
-    android:exported="false" />
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="#FF0000"
+    android:padding="32dp">
 
-<!-- AlarmReceiver to trigger alarm at scheduled time -->
-<receiver 
-    android:name=".AlarmReceiver"
-    android:exported="false" />
+    <TextView
+        android:id="@+id/alarmTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Alarm"
+        android:textSize="32sp"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="16dp"/>
+
+    <TextView
+        android:id="@+id/alarmBody"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Time's up!"
+        android:textSize="20sp"
+        android:textColor="#FFFFFF"
+        android:gravity="center"
+        android:layout_marginBottom="48dp"/>
+
+    <Button
+        android:id="@+id/dismissButton"
+        android:layout_width="200dp"
+        android:layout_height="wrap_content"
+        android:text="DISMISS"
+        android:textSize="18sp"
+        android:padding="16dp"/>
+
+</LinearLayout>
 ```
 
 ---
 
-## 💻 Step 3: Flutter Alarm Service
+### Step 5: Flutter Code
 
-### 3.1 Update NotificationService with Alarm Support
-
-Update `lib/notification_service.dart` to add alarm functionality:
+#### 5.1: `lib/notification_service.dart`
 
 ```dart
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 class NotificationService {
-  // ... (all previous notification code) ...
-
-  // Add MethodChannel for native communication
+  static final FlutterLocalNotificationsPlugin _notifications =
+      FlutterLocalNotificationsPlugin();
   static const platform = MethodChannel('com.example.notify_tester/alarm');
 
-  // Schedule alarm using native Android AlarmManager
-  Future<void> scheduleAlarm({
-    required DateTime scheduledDate,
-    required String title,
-    required String body,
-  }) async {
+  static Future<void> initialize() async {
+    tz.initializeTimeZones();
+
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initSettings = InitializationSettings(android: androidSettings);
+
+    await _notifications.initialize(initSettings);
+  }
+
+  static Future<void> showNotification(String title, String body) async {
+    const androidDetails = AndroidNotificationDetails(
+      'test_channel',
+      'Test Notifications',
+      channelDescription: 'Test notification channel',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    const notificationDetails = NotificationDetails(android: androidDetails);
+    await _notifications.show(0, title, body, notificationDetails);
+  }
+
+  static Future<void> scheduleNotification(
+    String title,
+    String body,
+    Duration delay,
+  ) async {
+    final scheduledDate = tz.TZDateTime.now(tz.local).add(delay);
+
+    const androidDetails = AndroidNotificationDetails(
+      'scheduled_channel',
+      'Scheduled Notifications',
+      channelDescription: 'Scheduled notification channel',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    const notificationDetails = NotificationDetails(android: androidDetails);
+
+    await _notifications.zonedSchedule(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title,
+      body,
+      scheduledDate,
+      notificationDetails,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+    );
+  }
+
+  static Future<void> scheduleAlarm(
+    String title,
+    String body,
+    Duration delay,
+  ) async {
+    final scheduledTime = DateTime.now().add(delay);
+    final timestamp = scheduledTime.millisecondsSinceEpoch;
+
+    print('NotificationService: Scheduling alarm');
+    print('  Timestamp: $timestamp');
+    print('  Title: $title');
+    print('  Body: $body');
+
     try {
-      await platform.invokeMethod('scheduleAlarm', {
-        'timestamp': scheduledDate.millisecondsSinceEpoch,
+      final result = await platform.invokeMethod('scheduleAlarm', {
+        'timestamp': timestamp,
         'title': title,
         'body': body,
       });
-      print('Alarm scheduled successfully for: $scheduledDate');
+      print('NotificationService: Alarm scheduled successfully: $result');
     } catch (e) {
-      print('Error scheduling alarm: $e');
+      print('NotificationService: Error scheduling alarm: $e');
+      rethrow;
     }
   }
 }
 ```
 
----
-
-## 🚀 Step 4: Using Alarms in Your App
-
-### 4.1 Add Alarm Button to UI
+#### 5.2: `lib/permissions_page.dart`
 
 ```dart
-class NotificationPage extends StatefulWidget {
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+class PermissionsPage extends StatefulWidget {
+  const PermissionsPage({super.key});
+
   @override
-  _NotificationPageState createState() => _NotificationPageState();
+  State<PermissionsPage> createState() => _PermissionsPageState();
 }
 
-class _NotificationPageState extends State<NotificationPage> {
-  DateTime? selectedDate;
-  TimeOfDay? selectedTime;
+class _PermissionsPageState extends State<PermissionsPage> {
+  Map<Permission, PermissionStatus> _permissionStatuses = {};
 
-  // Schedule alarm
-  Future<void> _scheduleAlarm() async {
-    if (selectedDate == null || selectedTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please select date and time')),
-      );
-      return;
-    }
+  @override
+  void initState() {
+    super.initState();
+    _checkPermissions();
+  }
 
-    // Combine date and time
-    final scheduledDateTime = DateTime(
-      selectedDate!.year,
-      selectedDate!.month,
-      selectedDate!.day,
-      selectedTime!.hour,
-      selectedTime!.minute,
+  Future<void> _checkPermissions() async {
+    final permissions = [
+      Permission.notification,
+      Permission.scheduleExactAlarm,
+      Permission.ignoreBatteryOptimizations,
+      Permission.systemAlertWindow,
+    ];
+
+    final statuses = await Future.wait(
+      permissions.map((permission) => permission.status),
     );
 
-    // Check if time is in the future
-    if (scheduledDateTime.isBefore(DateTime.now())) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please select a future time')),
-      );
-      return;
+    setState(() {
+      _permissionStatuses = Map.fromIterables(permissions, statuses);
+    });
+  }
+
+  Future<void> _requestPermission(Permission permission) async {
+    final status = await permission.request();
+    await _checkPermissions();
+  }
+
+  Future<void> _openNotificationSettings() async {
+    try {
+      if (Platform.isAndroid) {
+        await openAppSettings();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening settings: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
+  }
 
-    await NotificationService().scheduleAlarm(
-      scheduledDate: scheduledDateTime,
-      title: 'Alarm',
-      body: 'Time to wake up!',
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Permissions'),
+        backgroundColor: Colors.blue,
+      ),
+      body: RefreshIndicator(
+        onRefresh: _checkPermissions,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            const Card(
+              color: Colors.blue,
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.info, color: Colors.white),
+                        SizedBox(width: 8),
+                        Text(
+                          'Permission Status',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Note: Some permissions may show as "Granted" but not actually work. '
+                      'You MUST manually verify all permissions in Settings.',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              color: Colors.red,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.alarm, color: Colors.white),
+                        SizedBox(width: 8),
+                        Text(
+                          'CRITICAL: Alarm Setup Required',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'For alarms to work when app is closed:\n\n'
+                      '✓ Go to Settings → Apps → Notify Tester\n\n'
+                      '1. Notifications → Enable "Alarms & reminders"\n'
+                      '2. Battery → "Don\'t optimize" or "Unrestricted"\n'
+                      '3. Battery → "Allow background activity"\n'
+                      '4. Auto-launch → Enable (OnePlus/Oppo)\n'
+                      '5. Display over other apps → Enable\n\n'
+                      'OnePlus users: Disable "Deep Optimization" in Battery settings',
+                      style: TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: _openNotificationSettings,
+                      icon: const Icon(Icons.settings),
+                      label: const Text('Open App Settings'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.red,
+                        padding: const EdgeInsets.all(12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildPermissionTile(
+              Permission.notification,
+              'Notifications',
+              'Required to show alarm notifications',
+              Icons.notifications,
+            ),
+            _buildPermissionTile(
+              Permission.scheduleExactAlarm,
+              'Schedule Exact Alarms',
+              'Required to trigger alarms at exact time',
+              Icons.alarm,
+            ),
+            _buildPermissionTile(
+              Permission.ignoreBatteryOptimizations,
+              'Battery Optimization',
+              'Prevents system from killing app',
+              Icons.battery_full,
+            ),
+            _buildPermissionTile(
+              Permission.systemAlertWindow,
+              'Display Over Other Apps',
+              'Shows alarm over lockscreen',
+              Icons.open_in_new,
+            ),
+          ],
+        ),
+      ),
     );
+  }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Alarm scheduled for ${selectedTime!.format(context)}')),
+  Widget _buildPermissionTile(
+    Permission permission,
+    String title,
+    String description,
+    IconData icon,
+  ) {
+    final status = _permissionStatuses[permission];
+    final isGranted = status?.isGranted ?? false;
+
+    return Card(
+      child: ListTile(
+        leading: Icon(
+          icon,
+          color: isGranted ? Colors.green : Colors.orange,
+          size: 32,
+        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(description),
+            const SizedBox(height: 4),
+            Text(
+              status?.name.toUpperCase() ?? 'UNKNOWN',
+              style: TextStyle(
+                color: isGranted ? Colors.green : Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        trailing: ElevatedButton(
+          onPressed: () => _requestPermission(permission),
+          child: const Text('Grant'),
+        ),
+      ),
+    );
+  }
+}
+```
+
+#### 5.3: `lib/main.dart`
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'notification_service.dart';
+import 'permissions_page.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.initialize();
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Notify Tester',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        useMaterial3: true,
+      ),
+      home: const MyHomePage(),
+    );
+  }
+}
+
+class MyHomePage extends StatefulWidget {
+  const MyHomePage({super.key});
+
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
+  int _selectedSeconds = 30;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPermissions();
+  }
+
+  Future<void> _checkPermissions() async {
+    final notification = await Permission.notification.status;
+    final alarm = await Permission.scheduleExactAlarm.status;
+    
+    if (!notification.isGranted || !alarm.isGranted) {
+      if (mounted) {
+        _showPermissionDialog();
+      }
+    }
+  }
+
+  void _showPermissionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Permissions Required'),
+        content: const Text(
+          'This app requires notification and alarm permissions to function properly.\n\n'
+          'Please grant all required permissions in the Permissions page.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const PermissionsPage()),
+              );
+            },
+            child: const Text('Go to Permissions'),
+          ),
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Notifications & Alarms')),
-      body: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // Date picker
-            ListTile(
-              title: Text('Select Date'),
-              subtitle: Text(selectedDate?.toString() ?? 'No date selected'),
-              trailing: Icon(Icons.calendar_today),
-              onTap: () async {
-                final date = await showDatePicker(
-                  context: context,
-                  initialDate: DateTime.now(),
-                  firstDate: DateTime.now(),
-                  lastDate: DateTime.now().add(Duration(days: 365)),
-                );
-                if (date != null) {
-                  setState(() => selectedDate = date);
-                }
-              },
-            ),
-            
-            // Time picker
-            ListTile(
-              title: Text('Select Time'),
-              subtitle: Text(selectedTime?.format(context) ?? 'No time selected'),
-              trailing: Icon(Icons.access_time),
-              onTap: () async {
-                final time = await showTimePicker(
-                  context: context,
-                  initialTime: TimeOfDay.now(),
-                );
-                if (time != null) {
-                  setState(() => selectedTime = time);
-                }
-              },
-            ),
-            
-            SizedBox(height: 20),
-            
-            // Alarm button
-            ElevatedButton.icon(
-              onPressed: _scheduleAlarm,
-              icon: Icon(Icons.alarm),
-              label: Text('Schedule Alarm'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: const Text('Notify Tester'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const PermissionsPage()),
+              );
+            },
+          ),
+        ],
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                'Test Notifications & Alarms',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
-            ),
-          ],
+              const SizedBox(height: 40),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('Delay: ', style: TextStyle(fontSize: 18)),
+                  DropdownButton<int>(
+                    value: _selectedSeconds,
+                    items: [5, 10, 15, 30, 60, 120]
+                        .map((seconds) => DropdownMenuItem(
+                              value: seconds,
+                              child: Text('$seconds seconds'),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedSeconds = value!;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 40),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  await NotificationService.showNotification(
+                    '🔔 Test Notification',
+                    'This is a test notification!',
+                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Test notification sent!')),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.notifications),
+                label: const Text('Test Notification'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  await NotificationService.scheduleNotification(
+                    '📅 Scheduled Notification',
+                    'This notification was scheduled!',
+                    Duration(seconds: _selectedSeconds),
+                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Notification scheduled for $_selectedSeconds seconds',
+                        ),
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.schedule),
+                label: const Text('Schedule Notification'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  await NotificationService.scheduleAlarm(
+                    '⏰ Test Alarm',
+                    'Alarm triggered!',
+                    Duration(seconds: _selectedSeconds),
+                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Alarm scheduled for $_selectedSeconds seconds'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.alarm),
+                label: const Text('Schedule Alarm'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 40),
+              const Text(
+                'Close the app after scheduling to test background alarms',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -978,172 +1276,268 @@ class _NotificationPageState extends State<NotificationPage> {
 
 ---
 
-## 🎯 Key Differences: Notifications vs Alarms
+## 🛠️ ProGuard Configuration
 
-| Feature | Scheduled Notification | Full Alarm |
-|---------|----------------------|------------|
-| **Sound** | Plays once | Loops continuously |
-| **Display** | Small notification bar | Full-screen red display |
-| **Lock Screen** | Shows notification | Shows full-screen activity |
-| **Dismissal** | Swipe away | Must press dismiss button |
-| **Vibration** | Brief vibration | Continuous vibration |
-| **Priority** | Normal | Highest (ALARM) |
-| **Reliability** | Good | Excellent (AlarmManager) |
-| **Use Case** | Reminders, updates | Wake-up alarms, critical alerts |
+**Why it's needed:** Android's code shrinking (ProGuard/R8) removes "unused" classes. Without proper rules, your alarm classes will be stripped from the release APK, causing crashes.
 
----
+**What to keep:**
+- Flutter framework classes
+- Kotlin metadata (required for Kotlin reflection)
+- flutter_local_notifications plugin classes
+- Your custom alarm classes (AlarmReceiver, AlarmActivity, AlarmService, MainActivity)
+- BroadcastReceiver classes
+- AlarmManager and PendingIntent classes
 
-## 🐛 Common Issues & Solutions
-
-### Issue 1: Notifications not showing
-**Solution:** Check if notification permission is granted
-```dart
-PermissionStatus status = await Permission.notification.status;
-if (!status.isGranted) {
-  await Permission.notification.request();
-}
-```
-
-### Issue 2: Alarm not triggering at exact time
-**Solution:** Ensure exact alarm permission is granted
-```dart
-PermissionStatus status = await Permission.scheduleExactAlarm.status;
-if (!status.isGranted) {
-  await Permission.scheduleExactAlarm.request();
-}
-```
-
-### Issue 3: Alarm killed by battery optimization
-**Solution:** Request battery optimization exemption
-```dart
-await Permission.ignoreBatteryOptimizations.request();
-```
-
-### Issue 4: Alarm not showing on lock screen
-**Solution:** Verify these flags in AlarmActivity:
-```kotlin
-setShowWhenLocked(true)
-setTurnScreenOn(true)
-```
-
-### Issue 5: Sound not looping
-**Solution:** Ensure MediaPlayer has `isLooping = true`:
-```kotlin
-mediaPlayer?.isLooping = true
-```
+See the complete ProGuard rules in [Step 2](#step-2-create-androidappproguard-rulespro).
 
 ---
 
-## 📋 Complete Checklist
+## 📱 OEM-Specific Settings
 
-### For Notifications:
-- [ ] Add `flutter_local_notifications` package
-- [ ] Add `timezone` package
-- [ ] Add `permission_handler` package
-- [ ] Configure Android permissions in manifest
-- [ ] Enable core library desugaring
-- [ ] Initialize notification service
-- [ ] Create notification channels
-- [ ] Request runtime permissions
-- [ ] Implement schedule notification method
+Different phone manufacturers have aggressive battery optimization that kills background apps. Users **MUST** configure these settings manually.
 
-### For Alarms:
-- [ ] Complete all notification setup steps
-- [ ] Create AlarmActivity.kt
-- [ ] Create AlarmReceiver.kt
-- [ ] Update MainActivity.kt with MethodChannel
-- [ ] Register components in AndroidManifest
-- [ ] Add alarm-specific permissions
-- [ ] Implement MethodChannel in Flutter
-- [ ] Create scheduleAlarm method
-- [ ] Test on physical device
+### OnePlus / Oppo / Realme
 
----
+1. **Settings → Apps → Notify Tester → Battery**
+   - Set to "Don't optimize" or "Unrestricted"
+   - Enable "Allow background activity"
 
-## 🎨 UI Components Overview
+2. **Settings → Apps → Notify Tester → Auto-launch**
+   - Enable
 
-### Main Screen Features:
-- **AppBar** with title "Notify Tester"
-- **Date Picker ListTile** 
-  - Icon: Calendar
-  - Shows selected date or "No date selected"
-  - Opens Material DatePicker on tap
-  
-- **Time Picker ListTile**
-  - Icon: Clock
-  - Shows selected time or "No time selected"
-  - Opens Material TimePicker on tap
+3. **Settings → Battery → Battery Optimization**
+   - Find "Notify Tester" and disable "Deep Optimization"
 
-- **Three Action Buttons:**
-  - **Test Notification** - Green/Default color
-  - **Schedule Notification** - Blue/Default color  
-  - **Schedule Alarm** - Red color with alarm icon
+4. **Settings → Apps → Notify Tester → Notifications**
+   - Enable "Alarms & reminders"
+   - Enable "Allow full screen intent"
+   - Set priority to "Urgent"
 
-### Alarm Screen Features:
-- **Full-screen Activity** - No app bar, no navigation
-- **Red Background** - High contrast (#FF1744)
-- **Centered Layout** - All elements vertically centered
-- **Large Text** - 32sp for title, 24sp for body
-- **White on Red** - Maximum visibility
-- **Dismiss Button** - White button with red text, impossible to miss
-- **Lock Screen Display** - Shows over lock screen
-- **Back Button Disabled** - Must use dismiss button
+### Xiaomi / Redmi / POCO
+
+1. **Settings → Apps → Manage Apps → Notify Tester**
+   - Battery Saver → No restrictions
+   - Autostart → Enable
+   - Battery usage → Unrestricted
+
+2. **Settings → Notifications → Notify Tester**
+   - Enable "Show on lock screen"
+   - Enable "Override Do Not Disturb"
+
+### Samsung
+
+1. **Settings → Apps → Notify Tester → Battery**
+   - Allow background activity
+
+2. **Settings → Apps → Notify Tester → Notifications**
+   - Allow notifications
+   - Set to "Urgent"
+
+### Huawei
+
+1. **Settings → Apps → Notify Tester**
+   - Launch → Manage manually
+   - Battery → Do not optimize
 
 ---
 
-## 🚀 Testing
+## 🔨 Building APK
 
-### Test Notifications:
-1. Grant all permissions when app opens
-2. Select future date and time (e.g., 2 minutes from now)
-3. Press "Schedule Notification"
-4. Wait for scheduled time
-5. Notification should appear in notification bar
+### Debug Build
+```bash
+flutter build apk --debug
+```
 
-### Test Alarms:
-1. Grant all permissions
-2. Select future time (1-2 minutes from now)
-3. Press "Schedule Alarm"
-4. Lock your device
-5. At scheduled time:
-   - Screen turns on
-   - Full-screen red display appears
-   - Continuous alarm sound plays
-   - Device vibrates continuously
-   - Press "DISMISS ALARM" to stop
+### Release Build (Recommended)
+```bash
+flutter build apk --release --target-platform android-arm64
+```
+
+**Output:** `build/app/outputs/flutter-apk/app-release.apk`
+
+### Install via USB
+```bash
+adb install -r build/app/outputs/flutter-apk/app-release.apk
+```
 
 ---
 
-## 📱 Platform Support
+## 🧪 Testing
 
-- **Android:** Fully supported (API 21+)
-- **iOS:** Basic notifications supported (alarms require different approach)
-- **Minimum SDK:** 21 (Android 5.0)
-- **Target SDK:** 35 (Android 15)
+### 1. Test Immediate Notification
+- Open app → Tap "Test Notification"
+- Should show notification immediately
+- ✅ **Expected:** Notification appears in notification tray
+
+### 2. Test Scheduled Notification
+- Open app → Select delay (e.g., 30 seconds) → Tap "Schedule Notification"
+- Close app completely (swipe away from recent apps)
+- Wait for scheduled time
+- ✅ **Expected:** Notification appears even when app is closed
+
+### 3. Test Alarm (App in Recent Apps)
+- Open app → Select delay (e.g., 30 seconds) → Tap "Schedule Alarm"
+- Press home button (keep app in recent apps)
+- Wait for alarm time
+- ✅ **Expected:** Full-screen red alarm activity appears with sound and vibration
+
+### 4. Test Alarm (App Closed) - **CRITICAL TEST**
+- Open app → Select delay (e.g., 30 seconds) → Tap "Schedule Alarm"
+- **Close app completely** (swipe away from recent apps)
+- Wait for alarm time
+- ✅ **Expected:** Full-screen red alarm activity appears with sound and vibration
+
+**If step 4 fails:** Check [OEM-Specific Settings](#oem-specific-settings)
+
+### Verify with Logs
+```bash
+adb logcat -s MainActivity AlarmReceiver AlarmActivity AlarmService
+```
+
+**Expected log flow:**
+1. `MainActivity: Alarm scheduled successfully`
+2. `AlarmReceiver: Alarm received!`
+3. `AlarmService: Service created`
+4. `AlarmService: Wake lock acquired`
+5. `AlarmService: Full screen notification posted`
+6. `AlarmActivity: onCreate called` ← **This is critical!**
+
+**If `AlarmActivity: onCreate called` is missing when app is closed:**
+- User hasn't configured OEM-specific settings
+- Battery optimization is killing the service
+- "Alarms & reminders" notification permission not enabled
+
+---
+
+## 🐛 Troubleshooting
+
+### Problem: Alarms don't work in release APK
+
+**Cause:** ProGuard is stripping alarm classes
+
+**Solution:** 
+1. Verify `proguard-rules.pro` exists in `android/app/`
+2. Check `build.gradle` includes `proguardFiles` line
+3. Ensure package name in ProGuard rules matches your actual package
+4. Clean and rebuild: `flutter clean && flutter build apk --release`
+
+### Problem: Alarm works when app is open, not when closed
+
+**Cause:** Battery optimization or OEM restrictions
+
+**Solution:**
+1. Open Permissions page in app
+2. Tap "Open App Settings"
+3. Follow [OEM-Specific Settings](#oem-specific-settings) for your device
+4. **Most important:** Enable "Alarms & reminders" in notification settings
+
+### Problem: Permission shows "Granted" but alarm still doesn't work
+
+**Cause:** `permission_handler` package can't detect all OEM-specific settings
+
+**Solution:**
+- **Always** manually verify permissions in Android Settings
+- Don't trust the permission status shown in the app
+- Check notification settings specifically for "Alarms & reminders"
+
+### Problem: No sound or vibration
+
+**Cause:** Notification channel not configured properly or Do Not Disturb is on
+
+**Solution:**
+1. Settings → Apps → Notify Tester → Notifications
+2. Tap "Alarm Service" channel
+3. Enable "Override Do Not Disturb"
+4. Set importance to "Urgent"
+
+### Problem: Alarm appears in notification tray instead of full-screen
+
+**Cause:** "Use full screen intent" permission not granted (Android 12+)
+
+**Solution:**
+1. Settings → Apps → Notify Tester → Notifications
+2. Enable "Allow full screen intent" or "Alarms & reminders"
+
+### Problem: App crashes in release mode
+
+**Cause:** ProGuard removing necessary classes or Kotlin metadata
+
+**Solution:**
+1. Check ProGuard rules include `-keep class kotlin.Metadata { *; }`
+2. Add `-keep class com.yourpackage.** { *; }` for your package
+3. Test with minification disabled first:
+   ```gradle
+   buildTypes {
+       release {
+           minifyEnabled false
+           shrinkResources false
+       }
+   }
+   ```
+4. If it works, then ProGuard rules need fixing
+
+### OnePlus-Specific: Service destroys before activity launches
+
+**Cause:** OnePlus "Deep Optimization" kills service too quickly
+
+**Solution:**
+1. Settings → Battery → Battery Optimization
+2. Find "Notify Tester"
+3. Disable "Deep Optimization"
+4. Also set battery to "Unrestricted"
+
+---
+
+## 📝 Key Takeaways
+
+1. **ProGuard Rules Are Critical** - Your alarm won't work in release mode without them
+2. **Foreground Service Required** - Normal background services are killed immediately on Android 10+
+3. **Full-Screen Intent** - Only way to show alarm over lockscreen reliably
+4. **Wake Locks** - Necessary to turn screen on and keep it on
+5. **OEM Settings** - Users MUST manually configure battery optimization
+6. **Permission UI** - Don't trust `permission_handler` status, always verify manually
+7. **Testing** - Always test with app completely closed, not just in background
+
+---
+
+## 🎯 Implementation Checklist
+
+- [ ] Add dependencies to `pubspec.yaml`
+- [ ] Update `build.gradle` with minifyEnabled and ProGuard
+- [ ] Create `proguard-rules.pro` with keep rules
+- [ ] Update `AndroidManifest.xml` with all permissions
+- [ ] Add AlarmActivity, AlarmService, AlarmReceiver components
+- [ ] Create `MainActivity.kt` with scheduleAlarm method
+- [ ] Create `AlarmReceiver.kt`
+- [ ] Create `AlarmService.kt` with foreground service
+- [ ] Create `AlarmActivity.kt` with full-screen UI
+- [ ] Create `activity_alarm.xml` layout
+- [ ] Create `notification_service.dart`
+- [ ] Create `permissions_page.dart`
+- [ ] Update `main.dart`
+- [ ] Build release APK
+- [ ] Test with app closed completely
+- [ ] Configure OEM-specific settings
+- [ ] Verify logs show AlarmActivity launching
 
 ---
 
 ## 📄 License
 
-This documentation is provided as-is for educational purposes.
+This is a demonstration project. Feel free to use this code in your own projects.
 
 ---
 
-## 🤝 Contributing
+## 🙏 Credits
 
-Feel free to improve this documentation or report issues!
+Implementation based on solving real-world issues with:
+- Android's background activity restrictions
+- ProGuard obfuscation problems
+- OEM-specific battery optimization
+- Full-screen intent notifications
 
----
-
-## 📞 Support
-
-For issues or questions:
-1. Check permissions are granted
-2. Verify AndroidManifest configuration
-3. Check Android Studio Logcat for errors
-4. Ensure device is not in Do Not Disturb mode
-5. Test on physical device (emulator may have limitations)
+Tested on OnePlus 9RT with Android 13.
 
 ---
 
-**Happy Coding! 🎉**
+**Need help?** Check the [Troubleshooting](#troubleshooting) section or review the logs with `adb logcat`.

@@ -3,6 +3,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'notification_service.dart';
+import 'permissions_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,6 +41,65 @@ class _NotificationTestPageState extends State<NotificationTestPage> {
       TextEditingController(text: 'Test Notification');
   final TextEditingController messageController =
       TextEditingController(text: 'This is a scheduled notification!');
+
+  @override
+  void initState() {
+    super.initState();
+    // Check permissions on startup
+    Future.delayed(Duration.zero, () {
+      _checkAndRequestInitialPermissions();
+    });
+  }
+
+  Future<void> _checkAndRequestInitialPermissions() async {
+    // Check if critical permissions are missing
+    final notificationStatus = await Permission.notification.status;
+    final batteryOptStatus = await Permission.ignoreBatteryOptimizations.status;
+    
+    if (!notificationStatus.isGranted || !batteryOptStatus.isGranted) {
+      if (mounted) {
+        final result = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.info, color: Colors.blue),
+                SizedBox(width: 8),
+                Text('Setup Required'),
+              ],
+            ),
+            content: const Text(
+              'This app needs some permissions to work properly:\n\n'
+              '• Notifications\n'
+              '• Schedule Exact Alarms\n'
+              '• Battery Optimization (Critical!)\n\n'
+              'Would you like to grant these permissions now?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Later'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Grant Permissions'),
+              ),
+            ],
+          ),
+        );
+
+        if (result == true) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const PermissionsPage(),
+            ),
+          );
+        }
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -367,6 +427,19 @@ class _NotificationTestPageState extends State<NotificationTestPage> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: const Text('Notification Tester'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const PermissionsPage(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
