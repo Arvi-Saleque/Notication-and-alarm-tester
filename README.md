@@ -21,7 +21,40 @@ When the alarm time arrives, the app automatically launches a full-screen activi
 
 ---
 
-## 📚 Complete Documentation
+## � App Screenshots
+
+### Main Interface
+The app features a clean, user-friendly interface with three main buttons:
+
+**Home Screen:**
+- **Test Notification Button** - Send immediate test notification
+- **Schedule Notification Button** - Schedule notification with date/time picker
+- **Schedule Alarm Button** - Schedule full-featured alarm
+
+**Date & Time Picker:**
+- Material Design date picker for selecting date
+- Material Design time picker for selecting time
+- Real-time display of selected date and time
+- Clear visual feedback
+
+**Alarm Screen:**
+- Full-screen red background (#FF1744)
+- Large white text showing alarm title
+- Alarm message body
+- Prominent white "DISMISS ALARM" button
+- Shows even on lock screen
+- Continuous sound and vibration
+
+> **Tip:** Add your own screenshots here by taking screenshots of the app and placing them in a `screenshots` folder, then reference them like:
+> ```markdown
+> ![Home Screen](screenshots/home.png)
+> ![Date Picker](screenshots/date_picker.png)
+> ![Alarm Screen](screenshots/alarm_screen.png)
+> ```
+
+---
+
+## �📚 Complete Documentation
 
 This documentation is divided into two parts:
 - **Part 1: Scheduled Notifications** (Basic notifications)
@@ -1024,6 +1057,37 @@ mediaPlayer?.isLooping = true
 - [ ] Implement MethodChannel in Flutter
 - [ ] Create scheduleAlarm method
 - [ ] Test on physical device
+
+---
+
+## 🎨 UI Components Overview
+
+### Main Screen Features:
+- **AppBar** with title "Notify Tester"
+- **Date Picker ListTile** 
+  - Icon: Calendar
+  - Shows selected date or "No date selected"
+  - Opens Material DatePicker on tap
+  
+- **Time Picker ListTile**
+  - Icon: Clock
+  - Shows selected time or "No time selected"
+  - Opens Material TimePicker on tap
+
+- **Three Action Buttons:**
+  - **Test Notification** - Green/Default color
+  - **Schedule Notification** - Blue/Default color  
+  - **Schedule Alarm** - Red color with alarm icon
+
+### Alarm Screen Features:
+- **Full-screen Activity** - No app bar, no navigation
+- **Red Background** - High contrast (#FF1744)
+- **Centered Layout** - All elements vertically centered
+- **Large Text** - 32sp for title, 24sp for body
+- **White on Red** - Maximum visibility
+- **Dismiss Button** - White button with red text, impossible to miss
+- **Lock Screen Display** - Shows over lock screen
+- **Back Button Disabled** - Must use dismiss button
 
 ---
 
